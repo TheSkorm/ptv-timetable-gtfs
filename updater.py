@@ -1,15 +1,8 @@
-devid = ""
-key = ""
-endpoint = "http://timetableapi.ptv.vic.gov.au"
-
 # pip install requests dataset pymysql
 # pypy updater.py 1> op.log 2> error.log
 
 #TODO
 #
-# time/date calculation sometimes fails and provides a negative number - needs some refactoring
-# Routes with the same name should be one entry in the routes table
-# There are trips with no stopping pattern. These should be logged and not included in db
 # stations with same lat/lng should be merged
 # Unused stops purged
 
@@ -24,20 +17,24 @@ import dataset
 import sys, traceback
 from sys import stderr
 from sqlalchemy.exc import IntegrityError
+import ConfigParser
 
-db = dataset.connect('mysql://root@localhost/gtfs2')
-#db = dataset.connect('sqlite:///gtfs.db')
+
+config = ConfigParser.RawConfigParser()
+config.read('config.ini')
+
+db = dataset.connect(config.get('database', 'string'))
 
 db_stops = db.create_table("stops", "stop_id", "String")
-#dict(stop_id, stop_name, stop_lat, stop_lon)
 db_routes = db.create_table("routes", "route_id" ,"String")
-#dict(route_id, route_long_name, route_type)
 db_trips =db.create_table("trips", "trip_id" ,"String")
-#dict(route_id, service_id, trip_id)
 db_stop_times = db.create_table("stop_times")
-#dict(trip_id, arrival_time, departure_time, stop_id, stop_sequence)
 db_calendar_dates = db.create_table("calendar_dates", "service_id", "String")
-#dict(service_id, date, exception_type)
+
+devid = config.get('api', 'devid')
+key = config.get('api', 'key')
+
+endpoint = config.get('api', 'endpoint')
 
 print "DB created"
 sys.stdout.flush()
@@ -113,7 +110,7 @@ transport_types = {
 }
 
 """lines/mode/0"""
-stops = set()
+stops = {}
 runs = {"0": set(), "1": set(), "2": set(), "4": set()}
 routes = []
 days = set()
@@ -133,57 +130,47 @@ def getStops(mode, line_id):
 	sys.stdout.flush()
 	r = requests.get(endpoint + signURL( "/v2/mode/"+mode+"/line/"+ line_id+"/stops-for-line" , key, devid))
 	for stop in r.json():
-		if stop["stop_id"] not in stops:
+		if str(stop["stop_id"]) + "M" + mode not in stops: #  
 			mutex.acquire()
 			try:
-				stops.add(stop["stop_id"])
+				stops[str(stop["stop_id"])+ "M" + mode] = str(stop["stop_id"])
 			finally:
 				mutex.release()
 
-			db_stops.insert(dict(stop_id=stop["stop_id"], stop_name=stop['location_name'], stop_lat=stop["lat"], stop_lon=stop["lon"]))
+			db_stops.insert(dict(stop_id=str(stop["stop_id"])+ "M" + mode, stop_name=stop['location_name'], stop_lat=stop["lat"], stop_lon=stop["lon"]))
 
-			q.put((getNextDeparts,(mode,str(stop["stop_id"]))))
+			q.put((getNextDeparts,(mode,str(stop["stop_id"])+ "M" + mode)))
 
 """ /v2/mode/%@/stop/%@/departures/by-destination/limit/%@ """
 def getNextDeparts(mode, stop_id):
-	mutex.acquire()
-	skip = False
-	try:
-		if stop_id in stops:
-			skip = True
-		else:
-			stops.add(stop_id)
-	finally:
-		mutex.release()
-	if skip == False:
-		print "Starting next departs " + stop_id
-		sys.stdout.flush()
-		r = requests.get(endpoint + signURL( "/v2/mode/"+mode+"/stop/"+stop_id+"/departures/by-destination/limit/10000" , key, devid))
+	print "Starting next departs " + stop_id
+	sys.stdout.flush()
+	r = requests.get(endpoint + signURL( "/v2/mode/"+mode+"/stop/"+stops[stop_id]+"/departures/by-destination/limit/10000" , key, devid))
 
-		for departure in r.json()["values"]:
-			caldate = departure["time_timetable_utc"].split("T")[0].replace("-","")
-			if caldate not in days:
-				db_mutex.acquire()
-				try:
-					db_calendar_dates.upsert(dict(service_id=caldate, date=caldate, exception_type="1"), ['service_id']) 
-				finally:
-					db_mutex.release()
-				days.add(caldate)
-			if "M" + mode + "R"+str(departure["run"]["run_id"])+ "D" +caldate not in trips:
-				trips.add("M" + mode + "R"+str(departure["run"]["run_id"])+ "D" +caldate)
-				try:
-					if (departure['platform']['direction']['line']['line_name'] not in routes):
-						routes.append(departure['platform']['direction']['line']['line_name'])
-						routeIndex = "RI" + str(routes.index(departure['platform']['direction']['line']['line_name']))
-						db_routes.insert(dict(route_id=routeIndex, route_long_name=departure['platform']['direction']['line']['line_name'], route_type=transport_types[departure['run']["transport_type"]]), ["route_id"])
-
+	for departure in r.json()["values"]:
+		caldate = departure["time_timetable_utc"].split("T")[0].replace("-","")
+		if caldate not in days:
+			db_mutex.acquire()
+			try:
+				db_calendar_dates.upsert(dict(service_id=caldate, date=caldate, exception_type="1"), ['service_id']) 
+			finally:
+				db_mutex.release()
+			days.add(caldate)
+		if "M" + mode + "R"+str(departure["run"]["run_id"])+ "D" +caldate not in trips:
+			trips.add("M" + mode + "R"+str(departure["run"]["run_id"])+ "D" +caldate)
+			try:
+				if (departure['platform']['direction']['line']['line_name'] not in routes):
+					routes.append(departure['platform']['direction']['line']['line_name'])
 					routeIndex = "RI" + str(routes.index(departure['platform']['direction']['line']['line_name']))
-					db_trips.insert(dict(route_id=routeIndex, service_id=caldate, trip_id="M" + mode + "R"+str(departure["run"]["run_id"])+ "D" +caldate) ,['trip_id']);
-					
-					if str(departure["run"]["run_id"])+ "D" +caldate not in runs[mode]:
-						q.put((getStoppingPattern,(mode, stop_id, str(departure["run"]["run_id"]), caldate)))
-				except IntegrityError:
-					pass
+					db_routes.insert(dict(route_id=routeIndex, route_long_name=departure['platform']['direction']['line']['line_name'], route_type=transport_types[departure['run']["transport_type"]]), ["route_id"])
+
+				routeIndex = "RI" + str(routes.index(departure['platform']['direction']['line']['line_name']))
+				db_trips.insert(dict(route_id=routeIndex, service_id=caldate, trip_id="M" + mode + "R"+str(departure["run"]["run_id"])+ "D" +caldate) ,['trip_id']);
+				
+				if str(departure["run"]["run_id"])+ "D" +caldate not in runs[mode]:
+					q.put((getStoppingPattern,(mode, stops[stop_id], str(departure["run"]["run_id"]), caldate)))
+			except IntegrityError:
+				pass
 
 
 """ /v2/mode/%@/run/%@/stop/%@/stopping-pattern """
@@ -201,7 +188,7 @@ def getStoppingPattern(mode, stop_id, run_id, caldate):
 	if skip == False:
 		print "Starting stopping pattern " + "M" + mode  + "R" + run_id
 		sys.stdout.flush()
-		r = requests.get(endpoint + signURL( "/v2/mode/"+mode+"/run/"+run_id+"/stop/"+stop_id+"/stopping-pattern" , key, devid))
+		r = requests.get(endpoint + signURL( "/v2/mode/"+mode+"/run/"+run_id+"/stop/-1/stopping-pattern" , key, devid))
 		first = True
 		sequence=1
 		for pattern in r.json()["values"]:
@@ -212,7 +199,7 @@ def getStoppingPattern(mode, stop_id, run_id, caldate):
 			thisstop_date = datetime.strptime(pattern["time_timetable_utc"], "%Y-%m-%dT%H:%M:%SZ")
 			c = thisstop_date - midnight_date
 			time = "%02d:%02d:00" % ((c.days*24) + c.seconds//3600, (c.seconds//60)%60)
-			db_stop_times.insert(dict(trip_id="M" + mode + "R"+run_id+ "D" +caldate, arrival_time=time, departure_time=time, stop_id=pattern["platform"]["stop"]["stop_id"], stop_sequence=sequence))
+			db_stop_times.insert(dict(trip_id="M" + mode + "R"+run_id+ "D" +caldate, arrival_time=time, departure_time=time, stop_id=str(pattern["platform"]["stop"]["stop_id"])+ "M" + mode, stop_sequence=sequence))
 			sequence += 1
 
 

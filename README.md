@@ -17,7 +17,7 @@ Requirements for use
 Running
 --
 
-Update updater.py to have your keyid and devid
+Modify config.ini with your details.
 
 I've been testing this by running inside of screen
 
@@ -40,7 +40,6 @@ Linting of the data. There are many bugs with the data provided:
 
  - Time travelling services
  - Services where the time doesn't change for each stop
- - Stations used for multiple mode types (not really a data issue and can be fixed in the importer)
  - Unused stops
  - Routes / Trips with no stopping patten
  - VLine missing because there is no way to work out if it's a coach or a train
@@ -51,4 +50,3 @@ General bugs - There is a bug related to times becoming negatives
 Features
  - This exporter currently does the minimum to meet the specs. Ideally we should pull in more data. Things of intrest are fare costs, zones, colors for train routes, accessbility, short names (trams and bus numbers), headsigns (eg stopping before the end of the line), bikes , pickup type, timepoint 
  - Shapes, this is a hard one since we would need to grab the GIS data from data.vic.gov.au and crop it somehow
- - 
