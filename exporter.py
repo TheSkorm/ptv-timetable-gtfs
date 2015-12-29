@@ -20,19 +20,16 @@ stop_times_query = db.query('SELECT trip_id, arrival_time, departure_time, stop_
 #This is to remove duplicate stops with the same lat/lng
 
 stops_latlng = {}
-stops_sub = {}
 
 print "Starting stop lint"
 for row in stop_query: 
-	latlngindex = row["stop_id"].split("M")[-1] + ":" +  str(row["stop_lat"]) +":" + str(row["stop_lon"])
+	latlngindex = str(row["stop_lat"]) +":" + str(row["stop_lon"])
 	if latlngindex in stops_latlng:
 		db.query("UPDATE stop_times set stop_id='" + stops_latlng[latlngindex] + "' where stop_id='" +row["stop_id"]+ "'")
 		db.commit()
 		stop_db.delete(stop_id=row["stop_id"])
-		stops_sub[row["stop_id"]] = stops_latlng[latlngindex]
 	else:
 		stops_latlng[latlngindex] = row["stop_id"]
-		stops_sub[row["stop_id"]] = stops_latlng[latlngindex]
 print "Stopped lint"
 
 stop_times_query = db.query('SELECT trip_id, arrival_time, departure_time, stop_id, stop_sequence FROM stop_times')

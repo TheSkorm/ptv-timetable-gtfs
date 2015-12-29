@@ -133,16 +133,16 @@ def getStops(mode, line_id):
 	sys.stdout.flush()
 	r = requests.get(endpoint + signURL( "/v2/mode/"+mode+"/line/"+ line_id+"/stops-for-line" , key, devid))
 	for stop in r.json():
-		if str(stop["stop_id"]) + "M" + mode not in stops: #  
+		if str(stop["stop_id"]) not in stops: #  
 			mutex.acquire()
 			try:
-				stops[str(stop["stop_id"])+ "M" + mode] = str(stop["stop_id"])
+				stops[str(stop["stop_id"])] = str(stop["stop_id"])
 			finally:
 				mutex.release()
 
-			db_stops.insert(dict(stop_id=str(stop["stop_id"])+ "M" + mode, stop_name=stop['location_name'], stop_lat=stop["lat"], stop_lon=stop["lon"]))
+			db_stops.insert(dict(stop_id=str(stop["stop_id"]), stop_name=stop['location_name'], stop_lat=stop["lat"], stop_lon=stop["lon"]))
 
-			q.put((getNextDeparts,(mode,str(stop["stop_id"])+ "M" + mode)))
+			q.put((getNextDeparts,(mode,str(stop["stop_id"]))))
 
 """ /v2/mode/%@/stop/%@/departures/by-destination/limit/%@ """
 def getNextDeparts(mode, stop_id):
@@ -207,13 +207,13 @@ def getStoppingPattern(mode, stop_id, run_id, caldate):
 				first = False
 				midnight_date = orig_date.replace(hour=0, minute=0, second=0, microsecond=0)
 			else:
-				if laststop_date > thisstop_date: #ignore time traveling stopping patterns
+				if laststop_date => thisstop_date: #ignore time traveling stopping patterns
 					break
 			laststop_date = thisstop_date
 
 			c = thisstop_date - midnight_date
 			time = "%02d:%02d:00" % ((c.days*24) + c.seconds//3600, (c.seconds//60)%60)
-			db_stop_times.insert(dict(trip_id="M" + mode + "R"+run_id+ "D" +caldate, arrival_time=time, departure_time=time, stop_id=str(pattern["platform"]["stop"]["stop_id"])+ "M" + mode, stop_sequence=sequence))
+			db_stop_times.insert(dict(trip_id="M" + mode + "R"+run_id+ "D" +caldate, arrival_time=time, departure_time=time, stop_id=str(pattern["platform"]["stop"]["stop_id"]) stop_sequence=sequence))
 			sequence += 1
 
 
