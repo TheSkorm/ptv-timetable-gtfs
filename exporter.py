@@ -26,7 +26,7 @@ print "Starting stop lint"
 for row in stop_query: 
 	latlngindex = row["stop_id"].split("M")[-1] + ":" +  str(row["stop_lat"]) +":" + str(row["stop_lon"])
 	if latlngindex in stops_latlng:
-		db.query("UPDATE stop_times set stop_id='" + stops_sub[stop] + "' where stop_id='" +stop+ "'")
+		db.query("UPDATE stop_times set stop_id='" + stops_latlng[latlngindex] + "' where stop_id='" +row["stop_id"]+ "'")
 		db.commit()
 		stop_db.delete(stop_id=row["stop_id"])
 		stops_sub[row["stop_id"]] = stops_latlng[latlngindex]
