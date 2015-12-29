@@ -100,7 +100,7 @@ modes = {
 	"train" : "0",
 	"tram" : "1",
 	"bus" : "2",
-#	"vline" : "3" ,
+	"vline" : "3" 
 	"nightbus" : "4"
 }
 
@@ -114,7 +114,7 @@ transport_types = {
 
 """lines/mode/0"""
 stops = {}
-runs = {"0": set(), "1": set(), "2": set(), "4": set()}
+runs = {"0": set(), "1": set(), "2": set(), "3": set(), "4": set()}
 routes = []
 days = set()
 trips = set()
@@ -164,7 +164,14 @@ def getNextDeparts(mode, stop_id):
 				if (departure['platform']['direction']['line']['line_name'] not in routes):
 					routes.append(departure['platform']['direction']['line']['line_name'])
 					routeIndex = "RI" + str(routes.index(departure['platform']['direction']['line']['line_name']))
-					db_routes.insert(dict(route_id=routeIndex, route_long_name=departure['platform']['direction']['line']['line_name'], route_type=transport_types[departure['run']["transport_type"]]), ["route_id"])
+					if mode != "3":
+						route_type=transport_types[departure['run']["transport_type"]]
+					else:
+						if "Railway" in departure['platform']['stop']['location_name'] and "Railway" in departure['run']['destination_name']: #assume railway if departure and destination both have Railway in them
+							route_type=2
+						else:
+							route_type=3
+					db_routes.insert(dict(route_id=routeIndex, route_long_name=departure['platform']['direction']['line']['line_name'], route_type=route_type), ["route_id"])
 
 				routeIndex = "RI" + str(routes.index(departure['platform']['direction']['line']['line_name']))
 				db_trips.insert(dict(route_id=routeIndex, service_id=caldate, trip_id="M" + mode + "R"+str(departure["run"]["run_id"])+ "D" +caldate) ,['trip_id']);
