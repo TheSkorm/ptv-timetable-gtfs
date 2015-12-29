@@ -12,6 +12,7 @@ import dataset
 import sys, traceback
 from sys import stderr
 from sqlalchemy.exc import IntegrityError
+from sqlalchemy.types import Text
 import ConfigParser
 
 
@@ -25,6 +26,12 @@ db_routes = db.create_table("routes", "route_id" ,"String")
 db_trips =db.create_table("trips", "trip_id" ,"String")
 db_stop_times = db.create_table("stop_times")
 db_calendar_dates = db.create_table("calendar_dates", "service_id", "String")
+
+#mysql metadata lock problem workaround
+db_calendar_dates.create_column("service_id", Text)
+db_calendar_dates.create_column("date", Text)
+db_calendar_dates.create_column("exception_type", Text)
+
 
 devid = config.get('api', 'devid')
 key = config.get('api', 'key')
@@ -43,6 +50,7 @@ def signURL(url, keyid, devid):
 	else:
 		url = url +"?devid=" + devid
 	dhash = hmac.new(keyid, url, sha1).hexdigest().rstrip('\n').upper()
+	print url
 	return url + "&signature=" + dhash
 
 def do_stuff(q):
@@ -141,7 +149,6 @@ def getNextDeparts(mode, stop_id):
 	print "Starting next departs " + stop_id
 	sys.stdout.flush()
 	r = requests.get(endpoint + signURL( "/v2/mode/"+mode+"/stop/"+stops[stop_id]+"/departures/by-destination/limit/10000" , key, devid))
-
 	for departure in r.json()["values"]:
 		caldate = departure["time_timetable_utc"].split("T")[0].replace("-","")
 		if caldate not in days:
