@@ -33,15 +33,7 @@ for row in stop_query:
 	else:
 		stops_latlng[latlngindex] = row["stop_id"]
 		stops_sub[row["stop_id"]] = stops_latlng[latlngindex]
-
-print "Done stop lint starting stop times lint"
-
-for stop in stops_sub:
-		
-		print stop
-		
-print "Done stop times lint"
-
+print "Stopped lint"
 
 stop_times_query = db.query('SELECT trip_id, arrival_time, departure_time, stop_id, stop_sequence FROM stop_times')
 
