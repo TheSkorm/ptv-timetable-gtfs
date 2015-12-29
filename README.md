@@ -34,18 +34,12 @@ Todo
 
 Scripts to automate the entire process
 Build default files for agency and feed_info
-
+If a request fails (eg json can't be parsed or non 200 reply) then it should be added back to the queue with a rety counter.
+Make threads exit when queue empty 
 
 Linting of the data. There are many bugs with the data provided:
 
- - Time travelling services
  - Services where the time doesn't change for each stop
- - Unused stops
- - Routes / Trips with no stopping patten
- - VLine missing because there is no way to work out if it's a coach or a train
-
-
-General bugs - There is a bug related to times becoming negatives
 
 Features
  - This exporter currently does the minimum to meet the specs. Ideally we should pull in more data. Things of intrest are fare costs, zones, colors for train routes, accessbility, short names (trams and bus numbers), headsigns (eg stopping before the end of the line), bikes , pickup type, timepoint 
