@@ -1,11 +1,6 @@
 # pip install requests dataset pymysql
 # pypy updater.py 1> op.log 2> error.log
 
-#TODO
-#
-# stations with same lat/lng should be merged
-# Unused stops purged
-
 from Queue import LifoQueue
 from threading import Thread, Lock
 import requests
@@ -192,11 +187,16 @@ def getStoppingPattern(mode, stop_id, run_id, caldate):
 		first = True
 		sequence=1
 		for pattern in r.json()["values"]:
+			thisstop_date = datetime.strptime(pattern["time_timetable_utc"], "%Y-%m-%dT%H:%M:%SZ")
 			if first:
 				orig_date = datetime.strptime(pattern["time_timetable_utc"], "%Y-%m-%dT%H:%M:%SZ")
 				first = False
 				midnight_date = orig_date.replace(hour=0, minute=0, second=0, microsecond=0)
-			thisstop_date = datetime.strptime(pattern["time_timetable_utc"], "%Y-%m-%dT%H:%M:%SZ")
+			else:
+				if laststop_date > thisstop_date: #ignore time traveling stopping patterns
+					break
+			laststop_date = thisstop_date
+
 			c = thisstop_date - midnight_date
 			time = "%02d:%02d:00" % ((c.days*24) + c.seconds//3600, (c.seconds//60)%60)
 			db_stop_times.insert(dict(trip_id="M" + mode + "R"+run_id+ "D" +caldate, arrival_time=time, departure_time=time, stop_id=str(pattern["platform"]["stop"]["stop_id"])+ "M" + mode, stop_sequence=sequence))
