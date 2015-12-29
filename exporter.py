@@ -9,6 +9,8 @@ db = dataset.connect(config.get('database', 'string'))
 stop_db = db['stop']
 stop_times_db = db['stop_times']
 stop_times_db.create_index(["stop_id"])
+db.query('create index a on stop_times (stop_id(50))') #no idea why I need to do this the above should do it.
+db.commit()
 
 print "starting stop query"
 stop_query = db.query('select stops.stop_id,stop_name,stop_lat,stop_lon from stops inner join (select distinct stop_id from stop_times ) as t on t.stop_id = stops.stop_id')
@@ -24,6 +26,8 @@ print "Starting stop lint"
 for row in stop_query: 
 	latlngindex = row["stop_id"].split("M")[-1] + ":" +  str(row["stop_lat"]) +":" + str(row["stop_lon"])
 	if latlngindex in stops_latlng:
+		db.query("UPDATE stop_times set stop_id='" + stops_sub[stop] + "' where stop_id='" +stop+ "'")
+		db.commit()
 		stop_db.delete(stop_id=row["stop_id"])
 		stops_sub[row["stop_id"]] = stops_latlng[latlngindex]
 	else:
@@ -33,7 +37,7 @@ for row in stop_query:
 print "Done stop lint starting stop times lint"
 
 for stop in stops_sub:
-		db.query("UPDATE stop_times set stop_id='" + stops_sub[stop] + "' where stop_id='" +stop+ "'")
+		
 		print stop
 		
 print "Done stop times lint"

@@ -100,7 +100,7 @@ modes = {
 	"train" : "0",
 	"tram" : "1",
 	"bus" : "2",
-	"vline" : "3" 
+	"vline" : "3",
 	"nightbus" : "4"
 }
 
