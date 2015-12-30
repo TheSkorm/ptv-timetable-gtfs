@@ -1,7 +1,7 @@
 # pip install requests dataset pymysql
 # pypy updater.py 1> op.log 2> error.log
 
-from Queue import LifoQueue
+from Queue import Queue
 from threading import Thread, Lock
 import requests
 from hashlib import sha1
@@ -69,7 +69,7 @@ def do_stuff(q):
     finally:
     	q.task_done()
  
-q = LifoQueue(maxsize=0)
+q = Queue(maxsize=0)
 num_threads = 12
  
  #pre load the queue with sleep commands to stagger the startup
@@ -201,19 +201,21 @@ def getStoppingPattern(mode, stop_id, run_id, caldate):
 		first = True
 		sequence=1
 		for pattern in r.json()["values"]:
+			if str(pattern["platform"]["stop"]["stop_id"]) not in stops:
+				q.put((getStops,(mode, str(pattern["platform"]["stop"]["stop_id"]))))
 			thisstop_date = datetime.strptime(pattern["time_timetable_utc"], "%Y-%m-%dT%H:%M:%SZ")
 			if first:
 				orig_date = datetime.strptime(pattern["time_timetable_utc"], "%Y-%m-%dT%H:%M:%SZ")
 				first = False
 				midnight_date = orig_date.replace(hour=0, minute=0, second=0, microsecond=0)
 			else:
-				if laststop_date => thisstop_date: #ignore time traveling stopping patterns
+				if laststop_date >= thisstop_date: #ignore time traveling stopping patterns
 					break
 			laststop_date = thisstop_date
 
 			c = thisstop_date - midnight_date
 			time = "%02d:%02d:00" % ((c.days*24) + c.seconds//3600, (c.seconds//60)%60)
-			db_stop_times.insert(dict(trip_id="M" + mode + "R"+run_id+ "D" +caldate, arrival_time=time, departure_time=time, stop_id=str(pattern["platform"]["stop"]["stop_id"]) stop_sequence=sequence))
+			db_stop_times.insert(dict(trip_id="M" + mode + "R"+run_id+ "D" +caldate, arrival_time=time, departure_time=time, stop_id=str(pattern["platform"]["stop"]["stop_id"]), stop_sequence=sequence))
 			sequence += 1
 
 
